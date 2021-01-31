@@ -1,13 +1,13 @@
 # 1. Library imports
 import uvicorn
 from fastapi import FastAPI, File, UploadFile
-from prediction import read_image, predict
+from prediction import read_image, predict, detect_face
 import time
-import pandas as pd
+import cv2
+import numpy as np 
 
 # 2. Create the app object
 app = FastAPI()
-df = pd.read_excel("./data/Caption.xlsx", sheet_name=[1, 2, 3, 4], header=None)
 
 
 @app.get("/")
@@ -29,11 +29,17 @@ async def predict_api(file: UploadFile = File(...)):
     start = time.time()
 
     image = read_image(await file.read())
-
-    pred, prediction = predict(image, df)
-    end = time.time()
-    print(f"Total prediction time : {end-start:.2f} seconds.")
-    return pred, prediction
+    face, normalize = detect_face(image)
+    normalize_face = face
+    if face is not None:
+        if normalize:
+            normalize_face = np.array(face*255.0, dtype=np.int)
+        # cv2.imwrite('Face.jpg', normalize_face)
+        gender, emotion, cap = predict(normalize_face)
+        end = time.time()
+        print(f"Total prediction time : {end-start:.2f} seconds.")
+        return gender, emotion, cap
+    return "No Face detected..."
 
 
 # 5. Run the API with uvicorn
